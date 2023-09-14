@@ -1,0 +1,144 @@
+---
+# tasks file for deploy
+- name: Include vars
+  include_vars: "../vars/dependencies.yml"
+
+
+- name: Run update and upgrade the OS (apt dist-upgrade)
+  ansible.builtin.apt:
+    update_cache: yes
+    upgrade: dist
+
+
+- name: Install dependencies
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ dependencies }}"
+
+
+- name: Get stats of a file
+  ansible.builtin.stat:
+    path: /usr/local/bin/python3.10
+  register: st
+
+
+- name: Download and install Python 3.10
+  shell: |
+    wget https://www.python.org/ftp/python/3.10.0/Python-3.10.0.tgz
+    tar xzf Python-3.10.0.tgz
+    cd Python-3.10.0
+    ./configure --enable-optimizations
+    make altinstall
+  args:
+    chdir: /tmp
+  when: not st.stat.exists
+
+
+- name: Delete temp files
+  file:
+    path: /tmp/Python-3.10.0.tgz
+    state: absent
+
+
+- name: Create root directory project
+  file:
+    dest: "{{ dir }}"
+    state: directory
+    mode: '0755'
+
+
+- name: Get stats of a folder
+  ansible.builtin.stat:
+    path: /root/password-accessor/app
+  register: stf
+
+
+- name: Copy files project
+  ansible.builtin.copy:
+    src: ../files/app
+    dest: "{{ dir }}"
+  when: not stf.stat.exists
+
+
+- name: Install python requirements
+  ansible.builtin.pip:
+    requirements: "{{ dir }}/app/requirements.txt"
+    virtualenv: "{{ dir }}/venv"
+    virtualenv_command: virtualenv
+    virtualenv_python: python3
+
+
+- name: Setup postgres database
+  postgresql_db:
+    name: accessor
+    state: present
+  become: yes
+  become_method: sudo
+  become_user: postgres
+
+
+- name: Setup database user
+  postgresql_user:
+    db: accessor
+    user: postgres
+    password: "{{ bd_pass }}"
+  become: yes
+  become_method: sudo
+  become_user: postgres
+
+
+- name: Get stats of a folder domain-name
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ domain }}"
+  register: status_folder_certs
+
+
+- name: Create a directory for certificates
+  ansible.builtin.file:
+    path: "/etc/letsencrypt/live/{{ domain }}"
+    state: directory
+    mode: '0755'
+
+
+- name: Get stats of a certificates files
+  ansible.builtin.stat:
+    path: "/etc/letsencrypt/live/{{ domain }}/fullchain.pem"
+  register: status_certs
+
+
+- name: Copy certificates to server
+  ansible.builtin.copy:
+    src: ../files/app/certs/
+    dest: "/etc/letsencrypt/live/{{ domain }}/"
+  when: not status_certs.stat.exists
+
+
+- name: Deploy file router systemd
+  template:
+    src: router.j2
+    dest: /etc/systemd/system/tgbot_router.service
+  notify:
+    - Reload systemd
+
+
+- name: Deploy file runner systemd
+  template:
+    src: runner.j2
+    dest: /etc/systemd/system/tgbot_runner.service
+  notify:
+    - Reload systemd
+
+
+- name: Enable and run router service systemd
+  systemd:
+    name: tgbot_router.service
+    enabled: yes
+    state: started
+
+
+- name: Enable and run runner service systemd
+  systemd:
+    name: tgbot_runner.service
+    enabled: yes
+    state: started

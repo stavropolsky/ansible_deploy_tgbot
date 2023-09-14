@@ -1,0 +1,7 @@
+---
+# vars file for create_vm
+token: ""
+user: ""
+folder_id: ""
+image_id: ""
+subnet_id: ""

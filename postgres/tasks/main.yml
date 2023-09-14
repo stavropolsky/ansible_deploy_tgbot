@@ -1,0 +1,21 @@
+---
+# tasks file for postgres
+- name: Update cache
+  apt:
+    update_cache: yes
+
+
+- name: Install PostgreSQL
+  apt:
+    name:
+      - "postgresql-{{ version }}"
+      - postgresql-contrib
+      - acl
+    state: present
+
+
+- name: Enabled and running PostgreSQL
+  service:
+    name: postgresql
+    state: started
+    enabled: yes

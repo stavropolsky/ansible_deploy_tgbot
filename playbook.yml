@@ -1,0 +1,16 @@
+---
+- hosts: localhost
+
+  roles:
+    - role: create_vm
+  tags:
+    - create_vm
+
+- hosts: ya_instance
+  become: yes
+  roles:
+    - role: postgres
+    - role: deploy
+  tags:
+    - postgres
+    - deploy

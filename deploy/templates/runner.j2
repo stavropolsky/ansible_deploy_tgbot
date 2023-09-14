@@ -1,0 +1,13 @@
+[Unit]
+Description=tgbot_runner
+After=syslog.target
+After=tgbot_router.service
+
+[Service]
+Type=simple
+ExecStart={{ dir }}/venv/bin/python {{ dir }}/app/runner.py
+RestartSec=60
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
